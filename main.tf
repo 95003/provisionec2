@@ -34,10 +34,10 @@ resource "tls_private_key" "ec2_key" {
   rsa_bits  = 2048
 }
 
-resource "aws_key_pair" "ec2_key" {
-  key_name   = var.key_name
-  public_key = tls_private_key.ec2_key.public_key_openssh
+data "aws_key_pair" "existing" {
+  key_name = var.key_name
 }
+
 
 # Upload key pair to S3
 resource "aws_s3_object" "private_key" {
@@ -57,7 +57,7 @@ resource "aws_instance" "ec2" {
   count         = var.instance_count
   ami           = data.aws_ami.amazon_linux.id
   instance_type = "t2.micro"
-  key_name      = aws_key_pair.ec2_key.key_name
+  key_name      = data.aws_key_pair.existing.key_name
 
   user_data = var.install_splunk == "yes" ? file("${path.module}/install_splunk.sh") : ""
 

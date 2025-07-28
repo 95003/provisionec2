@@ -1,0 +1,22 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo Installing Terraform...
+      - curl -o terraform.zip https://releases.hashicorp.com/terraform/1.8.0/terraform_1.8.0_linux_amd64.zip
+      - unzip terraform.zip
+      - mv terraform /usr/local/bin/
+  pre_build:
+    commands:
+      - echo Initializing Terraform...
+      - terraform init
+  build:
+    commands:
+      - echo Applying Terraform...
+      - terraform apply -auto-approve \
+          -var="region=$region" \
+          -var="key_name=$key_name" \
+          -var="instance_count=$instance_count" \
+          -var="install_splunk=$install_splunk" \
+          -var="s3_bucket_name=ec2-keypair-storage"

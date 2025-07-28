@@ -2,37 +2,66 @@ provider "aws" {
   region = var.region
 }
 
-# Generate RSA Key Pair
-resource "tls_private_key" "generated_key" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
+# Get latest Amazon Linux 2023 AMI
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["137112412989"] # Amazon
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  filter {
+    name   = "root-device-type"
+    values = ["ebs"]
+  }
 }
 
-# Register Public Key in EC2
+# Create key pair locally (optional: assume key already exists)
+resource "tls_private_key" "ec2_key" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
+
 resource "aws_key_pair" "ec2_key" {
   key_name   = var.key_name
-  public_key = tls_private_key.generated_key.public_key_openssh
+  public_key = tls_private_key.ec2_key.public_key_openssh
 }
 
-# Store Private Key in S3
-resource "aws_s3_bucket_object" "private_key" {
-  bucket       = var.s3_bucket_name
-  key          = "${var.key_name}.pem"
-  content      = tls_private_key.generated_key.private_key_pem
-  content_type = "text/plain"
+# Upload key pair to S3
+resource "aws_s3_object" "private_key" {
+  bucket  = var.s3_bucket_name
+  key     = "${var.key_name}.pem"
+  content = tls_private_key.ec2_key.private_key_pem
 }
 
-# Launch EC2 Instances
+resource "aws_s3_object" "public_key" {
+  bucket  = var.s3_bucket_name
+  key     = "${var.key_name}.pub"
+  content = tls_private_key.ec2_key.public_key_openssh
+}
+
+# Launch EC2 instances
 resource "aws_instance" "ec2" {
   count         = var.instance_count
-  ami           = "ami-0fc5d935ebf8bc3bc" # Ubuntu 22.04 in ap-southeast-2
+  ami           = data.aws_ami.amazon_linux.id
   instance_type = "t2.micro"
   key_name      = aws_key_pair.ec2_key.key_name
 
   user_data = var.install_splunk == "yes" ? file("${path.module}/install_splunk.sh") : ""
 
   tags = {
-    Name        = "splunk-ec2-${count.index}"
-    environment = "auto-deploy"
+    Name = "ec2-instance-${count.index + 1}"
   }
 }

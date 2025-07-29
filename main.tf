@@ -2,10 +2,49 @@ provider "aws" {
   region = var.region
 }
 
-# Get latest Amazon Linux 2023 AMI
+# Generate a new private key
+resource "tls_private_key" "ec2_key" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
+
+# Check if key already exists
+data "aws_key_pair" "existing" {
+  key_name = var.key_name
+  depends_on = []
+  # If it doesn’t exist, terraform will create new one below
+  # Wrap in try() so terraform won’t fail
+}
+
+# Generate unique key name if duplicate exists
+locals {
+  final_key_name = try(data.aws_key_pair.existing.key_name, "") != "" ?
+    "${var.key_name}-${substr(uuid(), 0, 4)}" : var.key_name
+}
+
+# Create new AWS Key Pair
+resource "aws_key_pair" "ec2_key" {
+  key_name   = local.final_key_name
+  public_key = tls_private_key.ec2_key.public_key_openssh
+}
+
+# Upload keys to S3
+resource "aws_s3_object" "private_key" {
+  bucket  = var.s3_bucket_name
+  key     = "${local.final_key_name}.pem"
+  content = tls_private_key.ec2_key.private_key_pem
+}
+
+resource "aws_s3_object" "public_key" {
+  bucket  = var.s3_bucket_name
+  key     = "${local.final_key_name}.pub"
+  content = tls_private_key.ec2_key.public_key_openssh
+}
+
+# Get Amazon Linux 2023 AMI
 data "aws_ami" "amazon_linux" {
   most_recent = true
-  owners      = ["137112412989"] # Amazon
+  owners      = ["137112412989"]
 
   filter {
     name   = "name"
@@ -28,40 +67,16 @@ data "aws_ami" "amazon_linux" {
   }
 }
 
-# Create key pair locally (optional: assume key already exists)
-resource "tls_private_key" "ec2_key" {
-  algorithm = "RSA"
-  rsa_bits  = 2048
-}
-
-data "aws_key_pair" "existing" {
-  key_name = var.key_name
-}
-
-
-# Upload key pair to S3
-resource "aws_s3_object" "private_key" {
-  bucket  = var.s3_bucket_name
-  key     = "${var.key_name}.pem"
-  content = tls_private_key.ec2_key.private_key_pem
-}
-
-resource "aws_s3_object" "public_key" {
-  bucket  = var.s3_bucket_name
-  key     = "${var.key_name}.pub"
-  content = tls_private_key.ec2_key.public_key_openssh
-}
-
-# Launch EC2 instances
+# Launch EC2
 resource "aws_instance" "ec2" {
   count         = var.instance_count
   ami           = data.aws_ami.amazon_linux.id
-  instance_type = "t2.micro"
-  key_name      = data.aws_key_pair.existing.key_name
+  instance_type = "t3.medium"
+  key_name      = aws_key_pair.ec2_key.key_name
 
   user_data = var.install_splunk == "yes" ? file("${path.module}/install_splunk.sh") : ""
 
   tags = {
-    Name = "ec2-instance-${count.index + 1}"
+    Name = "${var.instance_name}-${count.index + 1}"
   }
 }

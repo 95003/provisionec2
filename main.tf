@@ -5,7 +5,7 @@ provider "aws" {
 # Get latest Amazon Linux 2023 AMI
 data "aws_ami" "amazon_linux" {
   most_recent = true
-  owners      = ["137112412989"] # Amazon official
+  owners      = ["137112412989"] # Amazon
 
   filter {
     name   = "name"
@@ -34,30 +34,25 @@ resource "tls_private_key" "ec2_key" {
   rsa_bits  = 2048
 }
 
-# Try to fetch existing key (may fail if not found)
-data "aws_key_pair" "existing" {
-  key_name = var.key_name
-}
-
-# Decide final key name
+# Always create a unique key name
 locals {
-  existing_key_name = try(data.aws_key_pair.existing.key_name, "")
-  final_key_name    = local.existing_key_name != "" ? "${var.key_name}-${substr(uuid(), 0, 4)}" : var.key_name
+  final_key_name = "${var.key_name}-${substr(uuid(), 0, 4)}"
 }
 
-# Create new AWS Key Pair
+# Create AWS Key Pair
 resource "aws_key_pair" "ec2_key" {
   key_name   = local.final_key_name
   public_key = tls_private_key.ec2_key.public_key_openssh
 }
 
-# Upload keys to S3
+# Upload private key to S3
 resource "aws_s3_object" "private_key" {
   bucket  = var.s3_bucket_name
   key     = "${local.final_key_name}.pem"
   content = tls_private_key.ec2_key.private_key_pem
 }
 
+# Upload public key to S3
 resource "aws_s3_object" "public_key" {
   bucket  = var.s3_bucket_name
   key     = "${local.final_key_name}.pub"

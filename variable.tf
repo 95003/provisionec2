@@ -15,9 +15,13 @@ variable "instance_count" {
 }
 
 variable "install_splunk" {
-  description = "Whether to install Splunk"
-  type        = bool
-  default     = false
+  description = "Whether to install Splunk on the EC2 instances"
+  type        = string
+  default     = "false"
+}
+
+locals {
+  install_splunk_bool = lower(var.install_splunk) == "true"
 }
 
 variable "s3_bucket_name" {

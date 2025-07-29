@@ -1,3 +1,20 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
+  }
+}
+
 provider "aws" {
   region = var.region
 }
@@ -5,7 +22,7 @@ provider "aws" {
 # Get latest Amazon Linux 2023 AMI
 data "aws_ami" "amazon_linux" {
   most_recent = true
-  owners      = ["137112412989"]
+  owners      = ["137112412989"] # Amazon
 
   filter {
     name   = "name"
@@ -28,50 +45,43 @@ data "aws_ami" "amazon_linux" {
   }
 }
 
-# Generate key pair
+# Generate random suffix for unique key names
+resource "random_id" "suffix" {
+  byte_length = 2
+}
+
+# Generate SSH private key
 resource "tls_private_key" "ec2_key" {
   algorithm = "RSA"
   rsa_bits  = 2048
 }
 
-# Try to look up an existing key
-data "aws_key_pair" "existing" {
-  key_name   = var.key_name
-  depends_on = []
-}
-
-# Use conditional expression correctly
-locals {
-  key_exists    = can(data.aws_key_pair.existing.key_name)
-  random_suffix = substr(uuid(), 0, 4)
-  final_key_name = local.key_exists ? "${var.key_name}-${local.random_suffix}" : var.key_name
-}
-
-# Create key pair in AWS
-resource "aws_key_pair" "generated" {
-  key_name   = local.final_key_name
+# Create AWS Key Pair with random suffix to avoid duplicate error
+resource "aws_key_pair" "ec2_key" {
+  key_name   = "${var.key_name}-${random_id.suffix.hex}"
   public_key = tls_private_key.ec2_key.public_key_openssh
 }
 
-# Upload keys to S3
+# Upload private key to S3 (so you can download the .pem)
 resource "aws_s3_object" "private_key" {
   bucket  = var.s3_bucket_name
-  key     = "${local.final_key_name}.pem"
+  key     = "${aws_key_pair.ec2_key.key_name}.pem"
   content = tls_private_key.ec2_key.private_key_pem
 }
 
+# Upload public key to S3 (optional, for reference)
 resource "aws_s3_object" "public_key" {
   bucket  = var.s3_bucket_name
-  key     = "${local.final_key_name}.pub"
+  key     = "${aws_key_pair.ec2_key.key_name}.pub"
   content = tls_private_key.ec2_key.public_key_openssh
 }
 
-# Launch EC2 instances
+# Launch EC2 Instances
 resource "aws_instance" "ec2" {
-  count         = tonumber(var.instance_count)
+  count         = var.instance_count
   ami           = data.aws_ami.amazon_linux.id
   instance_type = "t3.medium"
-  key_name      = aws_key_pair.generated.key_name
+  key_name      = aws_key_pair.ec2_key.key_name
 
   user_data = var.install_splunk == "yes" ? file("${path.module}/install_splunk.sh") : ""
 

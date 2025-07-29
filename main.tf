@@ -55,14 +55,22 @@ resource "aws_s3_object" "private_key" {
 
 # ✅ Launch EC2 instances
 resource "aws_instance" "ec2" {
-  count         = var.instance_count
   ami           = data.aws_ami.amazon_linux.id
   instance_type = "t2.micro"
   key_name      = aws_key_pair.ec2_key.key_name
+  count         = var.instance_count
+
+  user_data = var.install_splunk == "true" ? <<-EOT : null
+    #!/bin/bash
+    echo "Installing Splunk..."
+    # Add your Splunk installation commands here
+  EOT
 
   tags = {
-    Name = "terraform-ec2-${count.index}"
+    Name = "${var.instance_name}-${count.index}"
   }
+}
+
 
   # Optional user_data for Splunk install
   user_data = local.install_splunk_bool ? <<-EOT

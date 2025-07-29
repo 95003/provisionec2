@@ -14,7 +14,8 @@ phases:
   build:
     commands:
       - echo Applying Terraform...
-      - terraform apply -auto-approve \
+      - |
+        terraform apply -auto-approve \
           -var="region=${REGION}" \
           -var="key_name=${KEY_NAME}" \
           -var="instance_count=${INSTANCE_COUNT}" \

@@ -61,10 +61,10 @@ resource "aws_s3_object" "public_key" {
 
 # Launch EC2 instances
 resource "aws_instance" "ec2" {
-  count         = var.instance_count
+  count         = tonumber(var.instance_count)
   ami           = data.aws_ami.amazon_linux.id
   instance_type = "t3.medium"
-  key_name      = aws_key_pair.ec2_key.key_name
+  key_name      = aws_key_pair.generated_key.key_name
 
   user_data = var.install_splunk == "yes" ? file("${path.module}/install_splunk.sh") : ""
 

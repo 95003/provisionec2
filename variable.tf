@@ -4,14 +4,14 @@ variable "region" {
 }
 
 variable "key_name" {
-  description = "Name of the EC2 key pair"
+  description = "Base name for EC2 key pair"
   type        = string
 }
 
 variable "instance_count" {
   description = "Number of EC2 instances"
   type        = string
-  default     = 1
+  default     = "1"
 }
 
 variable "install_splunk" {
@@ -26,7 +26,6 @@ variable "s3_bucket_name" {
 }
 
 variable "instance_name" {
-  description = "Tag name for EC2 instance"
+  description = "Tag Name for EC2 instances"
   type        = string
-  default     = "ec2-instance"
 }

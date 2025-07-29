@@ -1,67 +1,31 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    tls = {
-      source  = "hashicorp/tls"
-      version = "~> 4.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
-  }
+variable "region" {
+  description = "AWS region"
+  type        = string
 }
 
-provider "aws" {
-  region = var.region
+variable "key_name" {
+  description = "Base name for the key pair"
+  type        = string
 }
 
-data "aws_ami" "amazon_linux" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
-  }
+variable "instance_count" {
+  description = "Number of EC2 instances to launch"
+  type        = number
+  default     = 1
 }
 
-resource "tls_private_key" "ec2_key" {
-  algorithm = "RSA"
-  rsa_bits  = 2048
+variable "install_splunk" {
+  description = "Whether to install Splunk (true/false as string from CodeBuild)"
+  type        = string
+  default     = "false"
 }
 
-resource "random_id" "suffix" {
-  byte_length = 2
+variable "s3_bucket_name" {
+  description = "S3 bucket name where private key will be stored"
+  type        = string
 }
 
-resource "aws_key_pair" "ec2_key" {
-  key_name   = "${var.key_name}-${random_id.suffix.hex}"
-  public_key = tls_private_key.ec2_key.public_key_openssh
-}
-
-resource "aws_s3_object" "private_key" {
-  bucket  = var.s3_bucket_name
-  key     = "${var.key_name}-${random_id.suffix.hex}.pem"
-  content = tls_private_key.ec2_key.private_key_pem
-}
-
-resource "aws_s3_object" "public_key" {
-  bucket  = var.s3_bucket_name
-  key     = "${var.key_name}-${random_id.suffix.hex}.pub"
-  content = tls_private_key.ec2_key.public_key_openssh
-}
-
-resource "aws_instance" "ec2" {
-  count         = var.instance_count
-  ami           = data.aws_ami.amazon_linux.id
-  instance_type = "t2.micro"
-  key_name      = aws_key_pair.ec2_key.key_name
-
-  tags = {
-    Name = "terraform-ec2-${count.index}"
-  }
+# ✅ Convert string → bool for use in resources
+locals {
+  install_splunk_bool = lower(var.install_splunk) == "true"
 }

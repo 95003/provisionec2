@@ -4,13 +4,13 @@ variable "region" {
 }
 
 variable "key_name" {
-  description = "Base name for EC2 key pair"
+  description = "Name of the EC2 key pair"
   type        = string
 }
 
 variable "instance_count" {
   description = "Number of EC2 instances"
-  type        = number
+  type        = any
   default     = 1
 }
 
@@ -26,7 +26,7 @@ variable "s3_bucket_name" {
 }
 
 variable "instance_name" {
-  description = "Base name for EC2 instance"
+  description = "Tag name for EC2 instance"
   type        = string
   default     = "ec2-instance"
 }

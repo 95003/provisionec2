@@ -21,9 +21,11 @@ variable "install_splunk" {
 }
 
 variable "s3_bucket_name" {
-  description = "S3 bucket name where private key will be stored"
+  description = "S3 bucket to store keypair"
   type        = string
+  default     = "keypair-provision"
 }
+
 
 variable "instance_name" {
   description = "Base name for the EC2 instance(s)"

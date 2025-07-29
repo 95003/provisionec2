@@ -4,7 +4,7 @@ variable "region" {
 }
 
 variable "key_name" {
-  description = "Name of the existing EC2 key pair"
+  description = "Base name for EC2 key pair"
   type        = string
 }
 
@@ -23,4 +23,10 @@ variable "install_splunk" {
 variable "s3_bucket_name" {
   description = "Name of S3 bucket to store keys"
   type        = string
+}
+
+variable "instance_name" {
+  description = "Name tag for EC2 instance"
+  type        = string
+  default     = "ec2-instance"
 }

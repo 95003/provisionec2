@@ -2,49 +2,10 @@ provider "aws" {
   region = var.region
 }
 
-# Generate a new private key
-resource "tls_private_key" "ec2_key" {
-  algorithm = "RSA"
-  rsa_bits  = 2048
-}
-
-# Check if key already exists
-data "aws_key_pair" "existing" {
-  key_name = var.key_name
-  depends_on = []
-  # If it doesn’t exist, terraform will create new one below
-  # Wrap in try() so terraform won’t fail
-}
-
-# Generate unique key name if duplicate exists
-locals {
-  final_key_name = try(data.aws_key_pair.existing.key_name, "") != "" ?
-    "${var.key_name}-${substr(uuid(), 0, 4)}" : var.key_name
-}
-
-# Create new AWS Key Pair
-resource "aws_key_pair" "ec2_key" {
-  key_name   = local.final_key_name
-  public_key = tls_private_key.ec2_key.public_key_openssh
-}
-
-# Upload keys to S3
-resource "aws_s3_object" "private_key" {
-  bucket  = var.s3_bucket_name
-  key     = "${local.final_key_name}.pem"
-  content = tls_private_key.ec2_key.private_key_pem
-}
-
-resource "aws_s3_object" "public_key" {
-  bucket  = var.s3_bucket_name
-  key     = "${local.final_key_name}.pub"
-  content = tls_private_key.ec2_key.public_key_openssh
-}
-
-# Get Amazon Linux 2023 AMI
+# Get latest Amazon Linux 2023 AMI
 data "aws_ami" "amazon_linux" {
   most_recent = true
-  owners      = ["137112412989"]
+  owners      = ["137112412989"] # Amazon official
 
   filter {
     name   = "name"
@@ -67,7 +28,43 @@ data "aws_ami" "amazon_linux" {
   }
 }
 
-# Launch EC2
+# Generate SSH key
+resource "tls_private_key" "ec2_key" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
+
+# Try to fetch existing key (may fail if not found)
+data "aws_key_pair" "existing" {
+  key_name = var.key_name
+}
+
+# Decide final key name
+locals {
+  existing_key_name = try(data.aws_key_pair.existing.key_name, "")
+  final_key_name    = local.existing_key_name != "" ? "${var.key_name}-${substr(uuid(), 0, 4)}" : var.key_name
+}
+
+# Create new AWS Key Pair
+resource "aws_key_pair" "ec2_key" {
+  key_name   = local.final_key_name
+  public_key = tls_private_key.ec2_key.public_key_openssh
+}
+
+# Upload keys to S3
+resource "aws_s3_object" "private_key" {
+  bucket  = var.s3_bucket_name
+  key     = "${local.final_key_name}.pem"
+  content = tls_private_key.ec2_key.private_key_pem
+}
+
+resource "aws_s3_object" "public_key" {
+  bucket  = var.s3_bucket_name
+  key     = "${local.final_key_name}.pub"
+  content = tls_private_key.ec2_key.public_key_openssh
+}
+
+# Launch EC2 instances
 resource "aws_instance" "ec2" {
   count         = var.instance_count
   ami           = data.aws_ami.amazon_linux.id

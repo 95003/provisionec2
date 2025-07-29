@@ -4,27 +4,28 @@ variable "region" {
 }
 
 variable "key_name" {
-  description = "EC2 key pair name"
+  description = "Base name for the key pair"
   type        = string
 }
 
 variable "instance_count" {
-  description = "Number of instances"
+  description = "Number of EC2 instances to launch"
   type        = number
   default     = 1
 }
 
 variable "install_splunk" {
-  description = "Whether to install Splunk on the EC2 instances"
+  description = "Whether to install Splunk (true/false as string from CodeBuild)"
   type        = string
   default     = "false"
 }
 
-locals {
-  install_splunk_bool = lower(var.install_splunk) == "true"
+variable "s3_bucket_name" {
+  description = "S3 bucket name where private key will be stored"
+  type        = string
 }
 
-variable "s3_bucket_name" {
-  description = "S3 bucket name to store keys"
-  type        = string
+# ✅ Convert string → bool for use in resources
+locals {
+  install_splunk_bool = lower(var.install_splunk) == "true"
 }

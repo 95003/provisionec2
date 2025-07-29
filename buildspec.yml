@@ -12,13 +12,12 @@ phases:
       - echo Initializing Terraform...
       - terraform init
   build:
-  commands:
-    - echo Applying Terraform...
-    - |
-      terraform apply -auto-approve \
-        -var="region=$REGION" \
-        -var="key_name=$KEY_NAME" \
-        -var="instance_count=${INSTANCE_COUNT}" \
-        -var="install_splunk=$INSTALL_SPLUNK" \
-        -var="s3_bucket_name=$S3_BUCKET_NAME" \
-        -var="instance_name=$INSTANCE_NAME"
+    commands:
+      - echo Applying Terraform...
+      - terraform apply -auto-approve \
+          -var="region=$REGION" \
+          -var="key_name=$KEY_NAME" \
+          -var="instance_count=${INSTANCE_COUNT}" \
+          -var="install_splunk=$INSTALL_SPLUNK" \
+          -var="s3_bucket_name=$S3_BUCKET_NAME" \
+          -var="instance_name=$INSTANCE_NAME"

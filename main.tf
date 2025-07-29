@@ -73,9 +73,11 @@ resource "aws_instance" "ec2" {
 
 
   # Optional user_data for Splunk install
-  user_data = local.install_splunk_bool ? <<-EOT
-              #!/bin/bash
-              echo "Installing Splunk..."
-              # your Splunk install script here
-              EOT : null
+  user_data = local.install_splunk_bool ? (<<-EOT
+  #!/bin/bash
+  echo "Installing Splunk..."
+  # your Splunk install script here
+EOT
+) : null
+
 }

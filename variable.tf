@@ -25,6 +25,12 @@ variable "s3_bucket_name" {
   type        = string
 }
 
+variable "instance_name" {
+  description = "Base name for the EC2 instance(s)"
+  type        = string
+  default     = "my-ec2"
+}
+
 # ✅ Convert string → bool for use in resources
 locals {
   install_splunk_bool = lower(var.install_splunk) == "true"

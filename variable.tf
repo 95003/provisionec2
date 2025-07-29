@@ -12,7 +12,12 @@ variable "instance_count" {
   description = "Number of EC2 instances"
   type        = number
   default     = 1
+  validation {
+    condition     = var.instance_count >= 1
+    error_message = "Instance count must be >= 1."
+  }
 }
+
 
 variable "install_splunk" {
   description = "Install Splunk (yes or no)"

@@ -10,7 +10,7 @@ variable "key_name" {
 
 variable "instance_count" {
   description = "Number of EC2 instances"
-  type        = any
+  type        = string
   default     = 1
 }
 

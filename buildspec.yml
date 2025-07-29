@@ -14,8 +14,13 @@ phases:
   build:
     commands:
       - echo Applying Terraform...
-      - |
-        terraform apply -auto-approve \
+      - echo "REGION=$REGION"
+      - echo "KEY_NAME=$KEY_NAME"
+      - echo "INSTANCE_COUNT=$INSTANCE_COUNT"
+      - echo "INSTALL_SPLUNK=$INSTALL_SPLUNK"
+      - echo "S3_BUCKET_NAME=$S3_BUCKET_NAME"
+      - echo "INSTANCE_NAME=$INSTANCE_NAME"
+      - terraform apply -auto-approve \
           -var="region=$REGION" \
           -var="key_name=$KEY_NAME" \
           -var="instance_count=$INSTANCE_COUNT" \

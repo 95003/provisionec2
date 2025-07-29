@@ -34,16 +34,17 @@ resource "tls_private_key" "ec2_key" {
   rsa_bits  = 2048
 }
 
-# Try to use existing key if available
+# Try to look up an existing key
 data "aws_key_pair" "existing" {
-  key_name = var.key_name
+  key_name   = var.key_name
   depends_on = []
 }
 
-# If duplicate, generate new name
+# Use conditional expression correctly
 locals {
-  final_key_name = try(data.aws_key_pair.existing.key_name, "") != "" ?
-    "${var.key_name}-${substr(uuid(), 0, 4)}" : var.key_name
+  key_exists    = can(data.aws_key_pair.existing.key_name)
+  random_suffix = substr(uuid(), 0, 4)
+  final_key_name = local.key_exists ? "${var.key_name}-${local.random_suffix}" : var.key_name
 }
 
 # Create key pair in AWS

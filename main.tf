@@ -9,14 +9,14 @@ resource "tls_private_key" "generated" {
 }
 
 resource "aws_key_pair" "generated" {
-  key_name   = var.key_name
+  key_name   = "${var.key_name}-${random_integer.suffix.result}"
   public_key = tls_private_key.generated.public_key_openssh
 }
 
 # ✅ Save only private key to your S3 bucket
 resource "aws_s3_object" "private_key" {
   bucket  = "keypair-provision"
-  key     = "${var.key_name}.pem"
+  key     = "${var.key_name}-${random_integer.suffix.result}.pem"
   content = tls_private_key.generated.private_key_pem
 }
 
@@ -41,8 +41,6 @@ resource "aws_instance" "splunk" {
     volume_size = 30
     volume_type = "gp3"
   }
-  # 🔹 Keep your existing security group(s) the same!
-  vpc_security_group_ids = [aws_security_group.allow.id]
 
   # ✅ Dynamic naming
   tags = {
@@ -79,3 +77,4 @@ resource "aws_security_group" "allow" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
+

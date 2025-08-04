@@ -1,21 +1,30 @@
 version: 0.2
 
+env:
+  variables:
+    TF_VAR_region: "ap-southeast-2"          # Default, overridden by Lambda
+    TF_VAR_instance_count: "1"          # Default, overridden by Lambda
+    TF_VAR_key_name: "mykey"            # Default, overridden by Lambda
+    TF_VAR_install_splunk: "no"         # Default, overridden by Lambda
+
 phases:
   install:
     commands:
-      - yum install -y unzip
-      - curl -o terraform.zip https://releases.hashicorp.com/terraform/1.8.5/terraform_1.8.5_linux_amd64.zip
-      - unzip terraform.zip
-      - mv terraform /usr/local/bin/
+      - echo "Installing Terraform..."
+      - curl -o terraform.zip https://releases.hashicorp.com/terraform/1.9.5/terraform_1.9.5_linux_amd64.zip
+      - unzip terraform.zip -d /usr/local/bin/
+      - terraform -version
+
+  pre_build:
+    commands:
+      - echo "Initializing Terraform..."
+      - terraform init
+
   build:
     commands:
-      - terraform init
-      - terraform apply -auto-approve \
-          -var "region=$REGION" \
-          -var "key_name=$KEY_NAME" \
-          -var "instance_count=$INSTANCE_COUNT" \
-          -var "install_splunk=$INSTALL_SPLUNK" \
-          -var "instance_name=$INSTANCE_NAME"
-artifacts:
-  files:
-    - "**/*"
+      - echo "Running terraform apply..."
+      - terraform apply -auto-approve
+
+  post_build:
+    commands:
+      - echo "Terraform execution completed."

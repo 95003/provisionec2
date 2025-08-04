@@ -1,93 +1,81 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    tls = {
-      source  = "hashicorp/tls"
-      version = "~> 4.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
-  }
-}
-
 provider "aws" {
   region = var.region
 }
 
-# Get the latest Amazon Linux 2 AMI
-data "aws_ami" "amazon_linux" {
+# ✅ Generate private key only
+resource "tls_private_key" "generated" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "generated" {
+  key_name   = var.key_name
+  public_key = tls_private_key.generated.public_key_openssh
+}
+
+# ✅ Save only private key to your S3 bucket
+resource "aws_s3_object" "private_key" {
+  bucket  = "keypair-provision"
+  key     = "${var.key_name}.pem"
+  content = tls_private_key.generated.private_key_pem
+}
+
+# ✅ Use RHEL instead of Amazon Linux
+data "aws_ami" "rhel" {
   most_recent = true
-  owners      = ["amazon"]
+  owners      = ["309956199498"] # Red Hat official account
 
   filter {
     name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+    values = ["RHEL-9.*-x86_64-*"]
   }
 }
 
-# Get all existing key pairs
-data "aws_key_pairs" "all" {}
-
-# Check if the user-supplied key already exists
-locals {
-  key_exists = contains([for k in data.aws_key_pairs.all.key_names : k], var.key_name)
-}
-
-# If key exists, generate a random suffix
-resource "random_id" "suffix" {
-  byte_length = 2
-  count       = local.key_exists ? 1 : 0
-}
-
-# Final key name (base or base + suffix)
-locals {
-  final_key_name = local.key_exists ? "${var.key_name}-${random_id.suffix[0].hex}" : var.key_name
-}
-
-# Generate a new key pair
-resource "tls_private_key" "ec2_key" {
-  algorithm = "RSA"
-  rsa_bits  = 2048
-}
-
-resource "aws_key_pair" "ec2_key" {
-  key_name   = local.final_key_name
-  public_key = tls_private_key.ec2_key.public_key_openssh
-}
-
-# Store private key in S3
-resource "aws_s3_object" "private_key" {
-  bucket  = var.s3_bucket_name
-  key     = "${local.final_key_name}.pem"
-  content = tls_private_key.ec2_key.private_key_pem
-}
-
-# Store public key in S3
-resource "aws_s3_object" "public_key" {
-  bucket  = var.s3_bucket_name
-  key     = "${local.final_key_name}.pub"
-  content = tls_private_key.ec2_key.public_key_openssh
-}
-
-# EC2 instance(s)
-resource "aws_instance" "ec2" {
-  ami           = data.aws_ami.amazon_linux.id
-  instance_type = "t2.micro"
-  key_name      = aws_key_pair.ec2_key.key_name
+# ✅ EC2 instance creation
+resource "aws_instance" "splunk" {
   count         = var.instance_count
+  ami           = data.aws_ami.rhel.id
+  instance_type = "t2.medium"
+  key_name      = aws_key_pair.generated.key_name
+  root_block_device {
+    volume_size = 30
+    volume_type = "gp3"
+  }
+  # 🔹 Keep your existing security group(s) the same!
+  vpc_security_group_ids = [aws_security_group.allow.id]
 
+  # ✅ Dynamic naming
   tags = {
-    Name = "${var.instance_name}-${count.index}"
+    Name = var.instance_count == 1 ? "splunk" : "splunk-${count.index + 1}"
   }
 
-  user_data = var.install_splunk ? <<-EOT
-              #!/bin/bash
-              echo "Installing Splunk..."
-              # your Splunk install script here
-              EOT : null
+  # ✅ Run Splunk setup only if install_splunk == "yes"
+  user_data = var.install_splunk == "yes" ? file("${path.module}/splunk-setup.sh") : null
+}
+
+# 🔹 Keep your existing security group inbound rules unchanged!
+resource "aws_security_group" "allow" {
+  name        = "allow_splunk"
+  description = "Allow SSH and Splunk"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 8000
+    to_port     = 9999
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }

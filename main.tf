@@ -8,6 +8,11 @@ resource "tls_private_key" "generated" {
   rsa_bits  = 4096
 }
 
+resource "random_integer" "suffix" {
+  min = 1
+  max = 9999
+}
+
 resource "aws_key_pair" "generated" {
   key_name   = "${var.key_name}-${random_integer.suffix.result}"
   public_key = tls_private_key.generated.public_key_openssh

@@ -17,7 +17,3 @@ phases:
     commands:
       - echo "Running terraform apply..."
       - terraform apply -auto-approve
-
-  post_build:
-    commands:
-      - echo "Terraform execution completed."

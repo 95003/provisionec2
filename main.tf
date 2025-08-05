@@ -1,5 +1,12 @@
+# Default provider for EC2 (dynamic region)
 provider "aws" {
   region = var.region
+}
+
+# Dedicated provider for S3 bucket (fixed region: ap-southeast-2)
+provider "aws" {
+  alias  = "s3_sydney"
+  region = "ap-southeast-2"
 }
 
 # Generate random suffix to avoid duplicate resource names
@@ -20,11 +27,12 @@ resource "aws_key_pair" "generated" {
   public_key = tls_private_key.generated.public_key_openssh
 }
 
-# Save private key to S3 bucket with unique suffix
+# Save private key to S3 bucket (always in ap-southeast-2)
 resource "aws_s3_object" "private_key" {
-  bucket  = "keypair-provision"
-  key     = "${var.key_name}-${random_integer.suffix.result}.pem"
-  content = tls_private_key.generated.private_key_pem
+  provider = aws.s3_sydney
+  bucket   = "keypair-provision"
+  key      = "${var.key_name}-${random_integer.suffix.result}.pem"
+  content  = tls_private_key.generated.private_key_pem
 }
 
 # Get the latest RHEL AMI

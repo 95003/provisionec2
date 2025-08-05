@@ -1,7 +1,13 @@
 #!/bin/bash
 
 # Install Required Packages
-yum install -y wget tar
+yum install -y wget tar firewalld
+
+# Enable firewall and open port 8000 for Splunk
+systemctl enable firewalld
+systemctl start firewalld
+firewall-cmd --permanent --add-port=8000/tcp
+firewall-cmd --reload
 
 # Create Splunk User and Directory (if not exists)
 id -u splunk &>/dev/null || useradd splunk
@@ -27,21 +33,15 @@ systemctl daemon-reexec
 systemctl daemon-reload
 systemctl enable disable-thp
 
-# Setup Splunk as splunk user
-su - splunk <<'EOF'
-# Navigate to home directory
+# Install Splunk as splunk user
+sudo -u splunk bash <<'EOF'
 cd /home/splunk
-
-# Download and Extract Splunk
 wget -O splunk-9.4.1-linux-amd64.tgz "https://download.splunk.com/products/splunk/releases/9.4.1/linux/splunk-9.4.1-e3bdab203ac8-linux-amd64.tgz"
 tar -xvf splunk-9.4.1-linux-amd64.tgz -C /opt/
-
-# Start Splunk (initial setup)
- /opt/splunk/bin/splunk start --accept-license --answer-yes --no-prompt --seed-passwd 'admin123'
+chown -R splunk:splunk /opt/splunk
+/opt/splunk/bin/splunk start --accept-license --answer-yes --no-prompt --seed-passwd 'admin123'
+/opt/splunk/bin/splunk enable boot-start -user splunk --accept-license --answer-yes --no-prompt
 EOF
-
-# Stop Splunk before systemd service setup
-/opt/splunk/bin/splunk stop
 
 # Create Splunk systemd service
 cat << 'EOF' > /etc/systemd/system/splunk.service
@@ -65,11 +65,8 @@ EOF
 systemctl daemon-reexec
 systemctl daemon-reload
 systemctl enable splunk
+systemctl start splunk
 
-/opt/splunk/bin/splunk enable boot-start -user splunk
-
-# Start the Splunk service
-/opt/splunk/bin/splunk start
-
-echo "Splunk setup completed successfully. Transparent Huge Pages (THP) disabled and Splunk is running as a systemd service."
-echo "Reboot the system to fully apply THP settings." 
+echo "✅ Splunk setup completed successfully."
+echo "👉 Access Splunk Web at: http://<EC2_PUBLIC_IP>:8000"
+echo "🔑 Login with username: admin  password: admin123"
